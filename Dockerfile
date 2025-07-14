@@ -1,15 +1,12 @@
 #syntax=docker/dockerfile:1
 
-# Versions
-FROM dunglas/frankenphp:1-php8.4 AS frankenphp_upstream
-
 # The different stages of this Dockerfile are meant to be built into separate images
 # https://docs.docker.com/develop/develop-images/multistage-build/#stop-at-a-specific-build-stage
 # https://docs.docker.com/compose/compose-file/#target
 
 
 # Base FrankenPHP image
-FROM frankenphp_upstream AS frankenphp_base
+FROM dunglas/frankenphp:1.3.6-php8.4-bookworm AS frankenphp_base
 
 WORKDIR /app
 
@@ -42,6 +39,9 @@ ENV MERCURE_TRANSPORT_URL=bolt:///data/mercure.db
 ENV PHP_INI_SCAN_DIR=":$PHP_INI_DIR/app.conf.d"
 
 ###> recipes ###
+###> doctrine/doctrine-bundle ###
+RUN install-php-extensions pdo_pgsql
+###< doctrine/doctrine-bundle ###
 ###< recipes ###
 
 COPY --link frankenphp/conf.d/10-app.ini $PHP_INI_DIR/app.conf.d/
@@ -67,38 +67,48 @@ ENV APP_ENV=dev
 ENV XDEBUG_MODE=off
 ENV FRANKENPHP_WORKER_CONFIG=watch
 
-RUN mv "$PHP_INI_DIR/php.ini-development" "$PHP_INI_DIR/php.ini"
 
-RUN set -eux; \
-	install-php-extensions \
-		xdebug \
-	;
+ENV APP_RUNTIME=Runtime\\FrankenPhpSymfony\\Runtime
+ENV TZ=Europe/Zurich
+
+RUN adduser --disabled-password --no-create-home smartlearn && \
+    setcap CAP_NET_BIND_SERVICE=+eip /usr/local/bin/frankenphp && \
+    chown -R smartlearn:smartlearn /config && \
+    chown -R smartlearn:smartlearn /data/caddy && \
+    apt update && \
+    apt install -y --no-install-recommends vim unzip sshpass xorriso fonts-noto-color-emoji clamav-daemon opendoas openssh-client runit graphviz curl iproute2 npm ghostscript socat && \
+    echo "permit nopass keepenv :root" > /etc/doas.conf && \
+    echo "" >> /etc/doas.conf && \
+    apt-get clean autoclean && \
+    apt-get autoremove --yes && \
+    rm -rf /var/lib/{apt,dpkg,cache,log}/ && \
+    curl -o - https://getcomposer.org/installer | php -- --quiet --2 --install-dir /usr/local/bin --filename composer && \
+    install-php-extensions bcmath ldap pcntl soap sockets gmp redis gd intl pdo_mysql sodium zip excimer opcache apcu && \
+    cp $PHP_INI_DIR/php.ini-production $PHP_INI_DIR/php.ini && \
+    ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
+    echo $TZ > /etc/timezone && \
+    echo "date.timezone=$TZ" > /usr/local/etc/php/conf.d/99_timezone.ini && \
+    mkdir /home/smartlearn && \
+    chown -R smartlearn:smartlearn /home/smartlearn
+
+RUN apt update && \
+    apt install -y --no-install-recommends graphviz mariadb-client nodejs git && \
+    apt-get clean autoclean && \
+    apt-get autoremove --yes && \
+    rm -rf /var/lib/{apt,dpkg,cache,log}/ && \
+    install-php-extensions xdebug-^3 && \
+    install -d -m 0755 -o $DDE_UID -g $DDE_GID var && \
+    install -d -m 0755 -o $DDE_UID -g $DDE_GID var/generated && \
+    install -d -m 0755 -o $DDE_UID -g $DDE_GID vendor && \
+    chown -R $DDE_UID:$DDE_GID /config && \
+    chown -R $DDE_UID:$DDE_GID /data/caddy
+
+
+RUN set -eux;
 
 COPY --link frankenphp/conf.d/20-app.dev.ini $PHP_INI_DIR/app.conf.d/
 
 CMD [ "frankenphp", "run", "--config", "/etc/frankenphp/Caddyfile", "--watch" ]
 
-# Prod FrankenPHP image
-FROM frankenphp_base AS frankenphp_prod
-
-ENV APP_ENV=prod
-
-RUN mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
-
-COPY --link frankenphp/conf.d/20-app.prod.ini $PHP_INI_DIR/app.conf.d/
-
-# prevent the reinstallation of vendors at every changes in the source code
-COPY --link composer.* symfony.* ./
-RUN set -eux; \
-	composer install --no-cache --prefer-dist --no-dev --no-autoloader --no-scripts --no-progress
-
-# copy sources
-COPY --link . ./
-RUN rm -Rf frankenphp/
-
-RUN set -eux; \
-	mkdir -p var/cache var/log; \
-	composer dump-autoload --classmap-authoritative --no-dev; \
-	composer dump-env prod; \
-	composer run-script --no-dev post-install-cmd; \
-	chmod +x bin/console; sync;
+WORKDIR /var/www/
+ENTRYPOINT []

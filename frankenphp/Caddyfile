@@ -3,63 +3,102 @@
 
 	{$CADDY_GLOBAL_OPTIONS}
 
+	auto_https off
+
 	frankenphp {
 		{$FRANKENPHP_CONFIG}
 
+		num_threads 4
+
 		worker {
-			file ./public/index.php
-			env APP_RUNTIME Runtime\FrankenPhpSymfony\Runtime
+			file /var/www/public/index.php
+			num 2
 			{$FRANKENPHP_WORKER_CONFIG}
 		}
+	}
+
+	servers {
+		trusted_proxies static private_ranges
 	}
 }
 
 {$CADDY_EXTRA_CONFIG}
 
-{$SERVER_NAME:localhost} {
+http:// {
+	bind tcp4/0.0.0.0
+	encode zstd br gzip
+
+	# HTTP caching
+	@staticFilesCache {
+		path /assets/*
+		path /media/*
+		path /static/*
+		path /favicon.ico
+	}
+
+	@noCache {
+		not path /assets/*
+		not path /media/*
+		not path /static/*
+		not path /favicon.ico
+	}
+
+	header -Server
+
+	header @staticFilesCache {
+		Cache-Control "max-age=31536000"
+		match status 2xx
+	}
+
+	header @noCache {
+		Cache-Control "no-store, must-revalidate"
+		Expires "0"
+	}
+
+	# status check
+	handle /api/ping {
+		respond "ok" 200
+	}
+
+	# prevent access to private files
+	handle /private-files/ {
+		respond 404
+	}
+
+	# prevent access to hidden files
+	@forbidden {
+		not path /.well-known/*
+		path /.*
+	}
+	handle @forbidden {
+		respond 404
+	}
+
 	log {
-		{$CADDY_SERVER_LOG_OPTIONS}
 		# Redact the authorization query parameter that can be set by Mercure
 		format filter {
-			request>uri query {
-				replace authorization REDACTED
+			wrap console
+			fields {
+				uri query {
+					replace authorization REDACTED
+				}
 			}
 		}
 	}
 
-	root /app/public
-	encode zstd br gzip
+	root * /var/www/public/
 
-	mercure {
-		# Publisher JWT key
-		publisher_jwt {env.MERCURE_PUBLISHER_JWT_KEY} {env.MERCURE_PUBLISHER_JWT_ALG}
-		# Subscriber JWT key
-		subscriber_jwt {env.MERCURE_SUBSCRIBER_JWT_KEY} {env.MERCURE_SUBSCRIBER_JWT_ALG}
-		# Allow anonymous subscribers (double-check that it's what you want)
-		anonymous
-		# Enable the subscription API (double-check that it's what you want)
-		subscriptions
-		# Extra directives
-		{$MERCURE_EXTRA_DIRECTIVES}
+	@api {
+		not path /api/ping
+		path /*
 	}
 
-	vulcain
-
-	{$CADDY_SERVER_EXTRA_DIRECTIVES}
-
-	# Disable Topics tracking if not enabled explicitly: https://github.com/jkarlin/topics
-	header ?Permissions-Policy "browsing-topics=()"
-
-	@phpRoute {
-		not path /.well-known/mercure*
-		not file {path}
+	handle @api {
+		php_server
 	}
-	rewrite @phpRoute index.php
 
-	@frontController path index.php
-	php @frontController
-
-	file_server {
-		hide *.php
+	handle {
+		try_files {path} /index.html
+		file_server
 	}
 }

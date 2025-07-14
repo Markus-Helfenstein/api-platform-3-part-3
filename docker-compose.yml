@@ -28,8 +28,8 @@ services:
       - /var/www/var
       - caddy_data:/data
       - caddy_config:/config
-      - ./api:/var/www/:cached
-      - ./api/var/data:/var/www/var/data:cached
+      - ./:/var/www/:cached
+      - ./var/data:/var/www/var/data:cached
       - ssh-agent_socket-dir:/tmp/ssh-agent:ro
     hostname: api    
     domainname: api-platform-3.test
