@@ -110,10 +110,7 @@ phpunit_new_db:
 	frankenphp php-cli bin/console doctrine:database:create --env=test
 	frankenphp php-cli bin/console doctrine:migrations:migrate -n --env=test
 	frankenphp php-cli bin/console doctrine:schema:update --force --complete --env=test
-	frankenphp php-cli bin/console doctrine:schema:drop --full-database --force --em=guacamole --env=test
-	frankenphp php-cli bin/console doctrine:database:create --if-not-exists -n --connection=guacamole --env=test
-	frankenphp php-cli bin/console doctrine:migrations:migrate --no-interaction --configuration=config/packages/migrations/guacamole.yaml --env=test
-	frankenphp php-cli bin/console doctrine:fixtures:load -n --env=test -vvv --group=demo
+	frankenphp php-cli bin/console doctrine:fixtures:load -n --env=test -vvv
 
 ## check phpunit coverage
 phpunit-cov:
