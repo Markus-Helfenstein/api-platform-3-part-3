@@ -1,3 +1,6 @@
+- locally cloned dunglas/symfony-docker
+- `git archive --format=tar HEAD | tar -xC ~/git/courses/symfonycasts/API\ Platform\ 3\ Part\ 3/` like explained in https://github.com/dunglas/symfony-docker/blob/main/docs/existing-project.md
+
 # API Platform 3 Part 3: Custom Resources & Operations  🐉
 
 Well howdy! This repository holds the code and script
