@@ -2,7 +2,6 @@
 .DEFAULT_GOAL := help
 include .env
 -include .env.local
-FIXTURES ?= default
 
 ## Show help
 help:
@@ -64,7 +63,7 @@ db:
 	frankenphp php-cli bin/console doctrine:database:create --if-not-exists -n
 	frankenphp php-cli bin/console doctrine:schema:drop --full-database --force
 	frankenphp php-cli bin/console doctrine:migrations:migrate -n
-	frankenphp php-cli bin/console doctrine:fixtures:load -n -v --env=fixtures --group=$(FIXTURES)
+	frankenphp php-cli bin/console doctrine:fixtures:load -n -v
 
 #################################################################
 # JWT

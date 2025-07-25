@@ -10,8 +10,6 @@ FROM dunglas/frankenphp:1.3.6-php8.4-bookworm AS frankenphp_base
 
 WORKDIR /app
 
-VOLUME /app/var/
-
 # persistent / runtime deps
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -101,7 +99,11 @@ RUN apt update && \
     install -d -m 0755 -o $DDE_UID -g $DDE_GID var/generated && \
     install -d -m 0755 -o $DDE_UID -g $DDE_GID vendor && \
     chown -R $DDE_UID:$DDE_GID /config && \
-    chown -R $DDE_UID:$DDE_GID /data/caddy
+    chown -R $DDE_UID:$DDE_GID /data/caddy && \
+    rm -rf /var/www/var/cache/* && \
+    mkdir -p /var/www/var/log /var/www/var/cache && \
+    chown -R $DDE_UID:$DDE_GID /var/www/var/log && \
+    chown -R $DDE_UID:$DDE_GID /var/www/var/cache
 
 
 RUN set -eux;
