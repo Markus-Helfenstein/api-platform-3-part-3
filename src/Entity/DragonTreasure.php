@@ -17,6 +17,7 @@ use ApiPlatform\Metadata\Post;
 use ApiPlatform\Metadata\Put;
 use ApiPlatform\Serializer\Filter\PropertyFilter;
 use App\Repository\DragonTreasureRepository;
+use App\State\DragonTreasureStateProvider;
 use App\Validator\IsValidOwner;
 use Carbon\Carbon;
 use Doctrine\DBAL\Types\Types;
@@ -61,6 +62,7 @@ use function Symfony\Component\String\u;
         'groups' => ['treasure:write'],
     ],
     paginationItemsPerPage: 10,
+    provider: DragonTreasureStateProvider::class,
     extraProperties: [
         'standard_put' => true,
     ],
@@ -136,6 +138,11 @@ class DragonTreasure
     #[IsValidOwner]
     #[ApiFilter(SearchFilter::class, strategy: 'exact')]
     private ?User $owner = null;
+
+    /**
+     * @var bool Non-persisted property to help determine if this treasure is owned by the authenticated user
+     */
+    private bool $isOwnedByAuthenticatedUser;
 
     public function __construct(string $name = null)
     {
@@ -247,5 +254,21 @@ class DragonTreasure
         $this->owner = $owner;
 
         return $this;
+    }
+
+    #[Groups(['treasure:read'])]
+    #[SerializedName('isMine')]
+    public function isOwnedByAuthenticatedUser(): bool
+    {
+        if (!isset($this->isOwnedByAuthenticatedUser)) {
+            throw new \LogicException('You must call setIsOwnedByAuthenticatedUser() before calling this method');
+        }
+
+        return $this->isOwnedByAuthenticatedUser;
+    }
+
+    public function setIsOwnedByAuthenticatedUser(bool $isOwnedByAuthenticatedUser): void
+    {
+        $this->isOwnedByAuthenticatedUser = $isOwnedByAuthenticatedUser;
     }
 }
